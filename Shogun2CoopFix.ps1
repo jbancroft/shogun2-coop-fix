@@ -59,12 +59,20 @@ function Add-Candidate {
 function Resolve-GameRoot {
     param([string]$RequestedRoot)
 
+    function Test-GameRoot {
+        param([Parameter(Mandatory = $true)][string]$Root)
+
+        return (Test-Path -LiteralPath (Join-Path $Root 'Shogun2.exe')) -and
+            ((Test-Path -LiteralPath (Join-Path $Root 'empire.retail.dll')) -or
+             (Test-Path -LiteralPath (Join-Path $Root 'Shogun2.dll')))
+    }
+
     if (-not [string]::IsNullOrWhiteSpace($RequestedRoot)) {
         $explicit = [System.IO.Path]::GetFullPath($RequestedRoot)
-        if (Test-Path -LiteralPath (Join-Path $explicit 'empire.retail.dll')) {
+        if (Test-GameRoot $explicit) {
             return $explicit
         }
-        throw "The supplied game root does not contain empire.retail.dll: $explicit"
+        throw "The supplied game root does not look like a Shogun 2 install: $explicit"
     }
 
     $candidates = New-Object 'System.Collections.Generic.List[string]'
@@ -117,7 +125,7 @@ function Resolve-GameRoot {
     }
 
     foreach ($candidate in @($candidates)) {
-        if (Test-Path -LiteralPath (Join-Path $candidate 'empire.retail.dll')) {
+        if (Test-GameRoot $candidate) {
             return ([System.IO.Path]::GetFullPath($candidate))
         }
     }
@@ -306,14 +314,14 @@ switch ($Action) {
 
     'InstallProfile' {
         if (-not $build.MatchesReviewedBuild) {
-            throw 'Refusing to install against an unreviewed game build. Run Status and inspect the hashes, or use the legacy overlay path described in README.md.'
+            Write-Warning 'This is not the reviewed current build. The user-script profile is still safe to apply, but verify that every multiplayer participant uses the same build.'
         }
         Install-Profile -Path $userScript -ProfileSeed $Seed -Diagnostics:$false
     }
 
     'InstallDiagnostics' {
         if (-not $build.MatchesReviewedBuild) {
-            throw 'Refusing to install against an unreviewed game build. Run Status and inspect the hashes first.'
+            Write-Warning 'This is not the reviewed current build. Diagnostics will be enabled, but every multiplayer participant must use the same build.'
         }
         Install-Profile -Path $userScript -ProfileSeed $Seed -Diagnostics:$true
     }

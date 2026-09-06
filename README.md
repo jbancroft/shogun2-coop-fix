@@ -49,9 +49,9 @@ If the hang recurs, collect diagnostics on both machines and then remove the dia
 
 Diagnostics are intentionally not part of the normal profile because extra synchronization logging can affect timing and produces large files.
 
-## Binary control: pre-update Windows executable depot
+## Binary control: pre-update Windows depot
 
-The official May 24, 2023 note describes a compiler/architecture update and a CPU crash fix, but does not mention a multiplayer synchronization fix. SteamDB identifies the current public build as `11306771`; a community rollback guide records the pre-update Windows depot manifests:
+The official May 24, 2023 note describes a compiler/architecture update and a CPU crash fix, but does not mention a multiplayer synchronization fix. SteamDB identifies the current public build as `11306771`; a community rollback guide records the pre-update Windows depot manifests. The downloaded layout is expected to contain `app_34330\depot_34331`, `depot_34332`, `depot_34333`, and `depot_34334`.
 
 ```text
 download_depot 34330 34331 686532749519328994
@@ -60,20 +60,20 @@ download_depot 34330 34333 1972056557494830740
 download_depot 34330 34334 8572849454388416810
 ```
 
-Run the Steam console commands one at a time on both machines, or otherwise obtain a legally owned pre-update Windows build. The optional `Install-LegacyBinaryOverlay.ps1` accepts a staging directory containing the old executable depot and replaces only these recognized native files:
+Run the Steam console commands one at a time on both machines, or otherwise obtain a legally owned pre-update Windows build. After downloading, double-click `Install-LegacyBuild.bat`. It uses `Install-LegacyBuild.ps1` to apply the four depot contents in order, backs up native files beside the game, moves the post-update `shogun2.retail.exe` aside, and copies the old executable/data/localization files. Data is not duplicated into the backup unless `-BackupData` is supplied; Steam file verification is the recovery path for current data.
 
 ```powershell
-.\Install-LegacyBinaryOverlay.ps1 -Action Status
-.\Install-LegacyBinaryOverlay.ps1 -Action Install -LegacyRoot 'C:\Program Files (x86)\Steam\steamapps\content\app_34330\depot_34331'
+.\Install-LegacyBuild.ps1 -Action Status
+.\Install-LegacyBuild.ps1 -Action Install -LegacyRoot 'C:\Program Files (x86)\Steam\steamapps\content\app_34330'
 ```
 
-It refuses an incomplete source, refuses to run while Shogun 2 is running, creates a dated backup, and can restore the latest backup:
+The older `Install-LegacyBinaryOverlay.ps1` name remains as a compatibility wrapper. The installer refuses an incomplete source, refuses to run while Shogun 2 is running, creates a dated native-file backup, and can restore the latest backup:
 
 ```powershell
-.\Install-LegacyBinaryOverlay.ps1 -Action Restore
+.\Restore-LegacyBuild.bat
 ```
 
-This helper intentionally does not recursively overwrite the game directory or copy the large data depot. If the complete legacy build is tested, every participant must use a coherent, identical set of legacy files; mixing current and legacy data is not a valid multiplayer test. Steam file verification will restore the current build, so keep the backup and test procedure available.
+This helper overlays the expected depot files recursively. Native files are backed up by default; the large data/locales files are not duplicated into the backup unless `-BackupData` is supplied. If the complete legacy build is tested, every participant must use a coherent, identical set of legacy files; mixing current and legacy data is not a valid multiplayer test. Steam file verification will restore the current build, so keep the backup and test procedure available.
 
 ## Validation target
 
