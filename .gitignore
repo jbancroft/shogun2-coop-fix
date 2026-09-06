@@ -1,0 +1,12 @@
+# Local reverse-engineering/download artifacts; never publish these.
+.analysis/
+.appdata/
+.dotnet-home/
+.localappdata/
+.tools/
+IsolatedStorage/
+.test-*/
+NuGet.Config
+
+# User-specific files created beside the script when testing.
+*.shogun2coopfix.*.bak

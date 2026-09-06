@@ -1,0 +1,3 @@
+# Shogun2CoopFix experimental profile.
+# Every human player must use the same value.
+constant_random_seed 1;
