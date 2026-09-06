@@ -4,6 +4,8 @@ This workspace contains a reversible, version-guarded fix profile and a guarded 
 
 For the simplest distribution, download the repository as a ZIP, extract it, and double-click `Install.bat` on every human player’s PC. No administrator prompt is expected. `Uninstall.bat` removes only the marked profile block.
 
+For the full legacy-build experiment, have every player double-click `Download-LegacyDepots.bat` instead. It opens that player’s Steam Console, copies one depot command at a time to the clipboard, verifies all four completed downloads, starts the guarded legacy installer, and installs the same random-seed profile. Steam credentials and Steam Guard remain entirely on that player’s machine; the helper does not ask for or store them.
+
 ## What the local investigation found
 
 - The installed game is `D:\SteamLibrary\steamapps\common\Total War Shogun 2`.
@@ -60,11 +62,14 @@ download_depot 34330 34333 1972056557494830740
 download_depot 34330 34334 8572849454388416810
 ```
 
-Run the Steam console commands one at a time on both machines, or otherwise obtain a legally owned pre-update Windows build. After downloading, double-click `Install-LegacyBuild.bat`. It uses `Install-LegacyBuild.ps1` to apply the four depot contents in order, backs up native files beside the game, moves the post-update `shogun2.retail.exe` aside, and copies the old executable/data/localization files. Data is not duplicated into the backup unless `-BackupData` is supplied; Steam file verification is the recovery path for current data.
+The recommended route is now to double-click `Download-LegacyDepots.bat` on both machines. Steam’s Console does not expose a dependable command-submission API, so the helper opens it and copies each command to the clipboard; the player pastes it into Steam and waits for Steam to finish. The helper then requires the exact expected file count, byte total, and legacy executable hashes before it starts the installer. This avoids applying a partial 20 GB depot download.
+
+If needed, the four commands can still be entered manually. After all four are downloaded, double-click `Install-LegacyBuild.bat`. It uses `Install-LegacyBuild.ps1` to apply the four depot contents in order, backs up native files beside the game, moves the post-update `shogun2.retail.exe` aside, and copies the old executable/data/localization files. Data is not duplicated into the backup unless `-BackupData` is supplied; Steam file verification is the recovery path for current data.
 
 ```powershell
 .\Install-LegacyBuild.ps1 -Action Status
 .\Install-LegacyBuild.ps1 -Action Install -LegacyRoot 'C:\Program Files (x86)\Steam\steamapps\content\app_34330'
+.\Download-LegacyDepots.ps1 -Action Status
 ```
 
 The older `Install-LegacyBinaryOverlay.ps1` name remains as a compatibility wrapper. The installer refuses an incomplete source, refuses to run while Shogun 2 is running, creates a dated native-file backup, and can restore the latest backup:
