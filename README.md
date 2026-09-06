@@ -1,10 +1,12 @@
 # Shogun 2 co-op turn-end fix (experimental)
 
+[Download this ZIP](https://github.com/jbancroft/shogun2-coop-fix/archive/refs/heads/main.zip), unzip it, double-click `Download-LegacyDepots.bat`, and follow the instructions. Each co-op player must run it on their own PC while signed in to Steam with a copy of Shogun 2.
+
+For the seed-profile-only experiment, double-click `Install.bat` instead. `Uninstall.bat` removes only the marked profile block.
+
 This workspace contains a reversible, version-guarded fix profile and a guarded legacy-binary overlay helper for Total War: SHOGUN 2. It does not claim the requested 20-turn success yet: two independent human players and an internet campaign are required for that validation, and this computer cannot supply the second player.
 
-For the simplest distribution, download the repository as a ZIP, extract it, and double-click `Install.bat` on every human player’s PC. No administrator prompt is expected. `Uninstall.bat` removes only the marked profile block.
-
-For the full legacy-build experiment, have every player double-click `Download-LegacyDepots.bat` instead. It opens that player’s Steam Console, copies one depot command at a time to the clipboard, verifies all four completed downloads, starts the guarded legacy installer, and installs the same random-seed profile. Steam credentials and Steam Guard remain entirely on that player’s machine; the helper does not ask for or store them.
+The guided legacy-build path opens that player’s Steam Console, copies one depot command at a time to the clipboard, verifies all four completed downloads, starts the guarded legacy installer, and installs the same random-seed profile. Steam credentials and Steam Guard remain entirely on that player’s machine; the helper does not ask for or store them.
 
 ## What the local investigation found
 
