@@ -35,14 +35,80 @@ function Get-Sha256 {
     }
 }
 
-function Write-Utf8NoBom {
+function Test-MalformedUserScriptEncoding {
+    param(
+        [Parameter(Mandatory = $true)][byte[]]$Bytes
+    )
+
+    # Shogun 2 creates its script files as UTF-16 LE with a BOM.  A previous
+    # version of this helper wrote UTF-8 into an existing UTF-16 script, which
+    # leaves a UTF-16 BOM followed by an invalid UTF-8 payload.  Recognize only
+    # our marked block in that form so arbitrary user text is never redecoded.
+    if ($Bytes.Length -lt 3 -or $Bytes[0] -ne 0xFF -or $Bytes[1] -ne 0xFE) {
+        return $false
+    }
+
+    $payload = New-Object byte[] ($Bytes.Length - 2)
+    [System.Array]::Copy($Bytes, 2, $payload, 0, $payload.Length)
+    try {
+        $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
+        $content = $utf8.GetString($payload)
+        return $content -match '(?m)^# >>> Shogun2CoopFix BEGIN'
+    }
+    catch {
+        return $false
+    }
+}
+
+function Read-UserScriptText {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    if (Test-MalformedUserScriptEncoding -Bytes $bytes) {
+        $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
+        $content = $utf8.GetString($bytes, 2, $bytes.Length - 2)
+    }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) {
+        $content = [System.Text.Encoding]::Unicode.GetString($bytes, 2, $bytes.Length - 2)
+    }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) {
+        $content = [System.Text.Encoding]::BigEndianUnicode.GetString($bytes, 2, $bytes.Length - 2)
+    }
+    elseif ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        $content = [System.Text.Encoding]::UTF8.GetString($bytes, 3, $bytes.Length - 3)
+    }
+    else {
+        $content = [System.Text.Encoding]::UTF8.GetString($bytes)
+    }
+
+    # NUL is never meaningful in a Shogun 2 text script.  The mixed-encoding
+    # file can leave stray NULs after the marked block; discard them before
+    # matching or rewriting the profile.
+    return $content.Replace([string][char]0, [string]::Empty)
+}
+
+function Get-UserScriptEncodingState {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    if (Test-MalformedUserScriptEncoding -Bytes $bytes) {
+        return 'Malformed UTF-16 BOM plus UTF-8 payload'
+    }
+    if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) {
+        return 'UTF-16 LE with BOM'
+    }
+    return 'Other or no BOM'
+}
+
+function Write-UserScriptText {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Content
     )
 
-    $utf8 = New-Object System.Text.UTF8Encoding($false)
-    [System.IO.File]::WriteAllText($Path, $Content, $utf8)
+    # Match Shogun 2's native preferences.script.txt encoding exactly.
+    $unicode = [System.Text.UnicodeEncoding]::new($false, $true)
+    [System.IO.File]::WriteAllText($Path, $Content, $unicode)
 }
 
 function Add-Candidate {
@@ -209,7 +275,7 @@ function Install-Profile {
 
     $directory = Split-Path -Parent $Path
     $exists = Test-Path -LiteralPath $Path
-    $oldContent = if ($exists) { [System.IO.File]::ReadAllText($Path) } else { '' }
+    $oldContent = if ($exists) { Read-UserScriptText -Path $Path } else { '' }
     $cleanContent = Remove-ProfileBlock $oldContent
     $block = Get-ProfileBlock -ProfileSeed $ProfileSeed -Diagnostics:$Diagnostics
     $cleanContent = $cleanContent.TrimEnd()
@@ -242,7 +308,7 @@ function Install-Profile {
         Write-Output "Backup: $backup"
     }
 
-    Write-Utf8NoBom -Path $Path -Content $newContent
+    Write-UserScriptText -Path $Path -Content $newContent
     Write-Output "Installed profile: $Path"
 }
 
@@ -254,7 +320,7 @@ function Restore-Profile {
         return
     }
 
-    $oldContent = [System.IO.File]::ReadAllText($Path)
+    $oldContent = Read-UserScriptText -Path $Path
     $newContent = Remove-ProfileBlock $oldContent
     if ($newContent -eq $oldContent) {
         Write-Output 'No Shogun2CoopFix profile block was found; no changes made.'
@@ -262,7 +328,7 @@ function Restore-Profile {
     }
 
     if ($PSCmdlet.ShouldProcess($Path, 'remove only the Shogun2CoopFix profile block')) {
-        Write-Utf8NoBom -Path $Path -Content $newContent
+        Write-UserScriptText -Path $Path -Content $newContent
         Write-Output "Removed profile block: $Path"
         Write-Output 'The timestamped backup created at install time was retained.'
     }
@@ -302,12 +368,19 @@ switch ($Action) {
         $profileInstalled = $false
         if (Test-Path -LiteralPath $userScript) {
             $profileInstalled = [regex]::IsMatch(
-                [System.IO.File]::ReadAllText($userScript),
+                (Read-UserScriptText -Path $userScript),
                 $ProfilePattern
             )
         }
 
+        $encodingState = if (Test-Path -LiteralPath $userScript) {
+            Get-UserScriptEncodingState -Path $userScript
+        }
+        else {
+            'Missing'
+        }
         $build | Add-Member -NotePropertyName UserScript -NotePropertyValue $userScript
+        $build | Add-Member -NotePropertyName UserScriptEncoding -NotePropertyValue $encodingState
         $build | Add-Member -NotePropertyName ProfileInstalled -NotePropertyValue $profileInstalled
         $build
     }
